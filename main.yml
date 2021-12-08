@@ -30,31 +30,34 @@
   win_command: NET Stop MSSQLSERVER /y
   register: sql_service_stopped
   delegate_to: "{{db_server}}"
+  ignore_errors: true
 
 
 # ###############Rebooting App Server###########################################
 
-- name: Restarting db server
+- name: Rebooting App Server
   win_command: shutdown /r
   delegate_to: "{{app_server}}"
+  ignore_errors: true
   
 ######################Rebooting DB Server##############################
 
-- name: Restarting db server
+- name: Rebooting DB Server
   win_command: shutdown /r
   delegate_to: "{{db_server}}"
+  ignore_errors: true
 
 
-#####################Starting SQL service##################
+  ###################### Wait For Server to Come Back ##############################
 
-- name: stopping sql service
-  # win_shell: C:\temp\powershell_sql_stop.ps1
-  win_command: NET start MSSQLSERVER /y
-  register: sql_service_started
-  delegate_to: "{{db_server}}"
+- name: Wait 160 seconds for port 5986 of any IP to close active connections
+  win_wait_for:
+    delegate_to: "{{db_server}}"
+    port: 5986
+    state: present
+    timeout: 300
 
-
-# ##########################Starting App Services##########################
+##########################Starting App Services##########################
   
 - name: Starting the services in the list
   win_shell: 'sc.exe start "{{item}}"'
@@ -65,5 +68,6 @@
   
 - name: Waiting for the all the services to be started
   wait_for:
-    timeout: 30
+    timeout: 120
   delegate_to: "{{app_server}}"
+  ignore_errors: true

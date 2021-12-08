@@ -1,5 +1,6 @@
+---
 
-#########Stopping App services###############
+# #########Stopping App services###############
 
 - name: copy the powershell files to local system
   win_copy:
@@ -15,77 +16,48 @@
     services_list: "{{running_services.stdout_lines | list }}"
     
 - name: Stopping the services in the list
-  # win_shell: 'sc.exe stop "{{item}}" <application> 4 "Planned"'
-  win_service:
-    name: "{{item}}"
-    state: stopped
+  win_shell: 'sc.exe stop "{{item}}"'
   register: Stopped_services
-  #loop: "{{running_services.stdout_lines.split(',') | trim }}"
   loop: "{{running_services.stdout_lines}}"
   delegate_to: "{{app_server}}" 
   ignore_errors: true
     
-- name: Waiting for the all the services to be stopped
-  wait_for:
-    timeout: 60
-  delegate_to: localhost
-
 
 ###################Stopping SQL Service#######################
 
-
-- name: Run command to stop SQL Server
-  win_command: NET stop MSSQLSERVER /y
+- name: stopping sql service
+  # win_shell: C:\temp\powershell_sql_stop.ps1
+  win_command: NET Stop MSSQLSERVER /y
   register: sql_service_stopped
-  win_wait_for:
-    timeout: 60
   delegate_to: "{{db_server}}"
 
 
-- name: Run command ro restart SQL Server
+# ###############Rebooting App Server###########################################
+
+- name: Restarting db server
   win_command: shutdown /r
-  delegate_to: "{{app_server}}" 
-
-- name: Wait For
-  win_wait_for: 
-    port: 5986
-    state: present
-    timeout: 30 
-
-
-
+  delegate_to: "{{app_server}}"
+  
 ######################Rebooting DB Server##############################
 
-
-- name: Run command ro restart SQL Server
+- name: Restarting db server
   win_command: shutdown /r
-  delegate_to: "{{db_server}}" 
-
-- name: WAIT FOR 
-  win_wait_for: 
-    port: 5986
-    state: present
-    timeout: 30 
-    
-  
-######################Starting SQL service##################
-
-
-- name: Waiting for sql service to be started
-  win_wait_for:
-    timeout: 60
   delegate_to: "{{db_server}}"
-  # delegate_to: localhost
 
 
+#####################Starting SQL service##################
 
-##########################Starting App Services##########################
+- name: stopping sql service
+  # win_shell: C:\temp\powershell_sql_stop.ps1
+  win_command: NET start MSSQLSERVER /y
+  register: sql_service_started
+  delegate_to: "{{db_server}}"
+
+
+# ##########################Starting App Services##########################
   
 - name: Starting the services in the list
-  win_service:
-    name: "{{item}}"
-    state: started
-  # win_shell: 'sc.exe start "{{item}}"'
+  win_shell: 'sc.exe start "{{item}}"'
   register: started_services
   loop: "{{running_services.stdout_lines}}"
   delegate_to: "{{app_server}}"
@@ -93,5 +65,5 @@
   
 - name: Waiting for the all the services to be started
   wait_for:
-    timeout: 120
-  delegate_to: localhost
+    timeout: 30
+  delegate_to: "{{app_server}}"
